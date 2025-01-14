@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compra con Mercado Pago</title>
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+</head>
+<body>
+    <h1>Botón de Compra con Mercado Pago</h1>
+    <button id="checkout-button">Comprar por $1</button>
+
+    <script>
+        // Configura tu Public Key
+        const mp = new MercadoPago('APP_USR-9a082984-b3a3-4725-a3d8-406db22c275e', {
+            locale: 'es-AR' // Ajusta según tu región
+        });
+
+        // Crea una preferencia de pago
+        fetch('https://hidocus.vercel.app/api/crear-preferencia', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                // Detalles de la preferencia
+                title: 'Producto de prueba',
+                unit_price: 1.0, // Precio del producto
+                quantity: 1,
+            })
+        })
+        .then(response => response.json())
+        .then(preference => {
+            // Inicializa el botón de pago
+            mp.checkout({
+                preference: {
+                    id: preference.id // ID de la preferencia
+                },
+                render: {
+                    container: '#checkout-button', // Donde se renderiza el botón
+                    label: 'Comprar por $1', // Etiqueta del botón
+                }
+            });
+        })
+        .catch(error => console.error('Error al crear la preferencia:', error));
+    </script>
+</body>
+</html>
