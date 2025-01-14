@@ -1,51 +1,68 @@
+const crypto = require('crypto');
 
-// Obtain the x-signature value from the header
-const xSignature = headers['x-signature']; // Assuming headers is an object containing request headers
-const xRequestId = headers['x-request-id']; // Assuming headers is an object containing request headers
-
-// Obtain Query params related to the request URL
-const urlParams = new URLSearchParams(window.location.search);
-const dataID = urlParams.get('data.id');
-
-// Separating the x-signature into parts
-const parts = xSignature.split(',');
-
-// Initializing variables to store ts and hash
-let ts;
-let hash;
-
-// Iterate over the values to obtain ts and v1
-parts.forEach(part => {
-    // Split each part into key and value
-    const [key, value] = part.split('=');
-    if (key && value) {
-        const trimmedKey = key.trim();
-        const trimmedValue = value.trim();
-        if (trimmedKey === 'ts') {
-            ts = trimmedValue;
-        } else if (trimmedKey === 'v1') {
-            hash = trimmedValue;
-        }
+export default async function handler(req, res) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
-});
 
-// Obtain the secret key for the user/application from Mercadopago developers site
-const secret = '9b38902e9a9432448295aabcba7b2133b7f3f496aeb2f522f8f4438ab089ff8f';
+    // Obtain headers from the request
+    const xSignature = req.headers['x-signature'];
+    const xRequestId = req.headers['x-request-id'];
 
-// Generate the manifest string
-const manifest = `id:${dataID};request-id:${xRequestId};ts:${ts};`;
+    if (!xSignature || !xRequestId) {
+        return res.status(400).json({ error: 'Missing required headers' });
+    }
 
-// Create an HMAC signature
-const hmac = crypto.createHmac('sha256', secret);
-hmac.update(manifest);
+    // Obtain the data.id from the body or query parameters
+    const dataID = req.query['data.id'] || req.body?.['data.id'];
 
-// Obtain the hash result as a hexadecimal string
-const sha = hmac.digest('hex');
+    if (!dataID) {
+        return res.status(400).json({ error: 'Missing data.id' });
+    }
 
-if (sha === hash) {
-    // HMAC verification passed
-    console.log("HMAC verification passed");
-} else {
-    // HMAC verification failed
-    console.log("HMAC verification failed");
+    // Separate the x-signature into parts
+    const parts = xSignature.split(',');
+
+    // Initialize variables to store ts and hash
+    let ts;
+    let hash;
+
+    // Iterate over the values to obtain ts and v1
+    parts.forEach((part) => {
+        const [key, value] = part.split('=');
+        if (key && value) {
+            const trimmedKey = key.trim();
+            const trimmedValue = value.trim();
+            if (trimmedKey === 'ts') {
+                ts = trimmedValue;
+            } else if (trimmedKey === 'v1') {
+                hash = trimmedValue;
+            }
+        }
+    });
+
+    if (!ts || !hash) {
+        return res.status(400).json({ error: 'Invalid x-signature format' });
+    }
+
+    // Secret key for HMAC
+    const secret = '9b38902e9a9432448295aabcba7b2133b7f3f496aeb2f522f8f4438ab089ff8f';
+
+    // Generate the manifest string
+    const manifest = `id:${dataID};request-id:${xRequestId};ts:${ts};`;
+
+    // Create an HMAC signature
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(manifest);
+
+    // Obtain the hash result as a hexadecimal string
+    const sha = hmac.digest('hex');
+
+    if (sha === hash) {
+        // HMAC verification passed
+        return res.status(200).json({ message: 'HMAC verification passed' });
+    } else {
+        // HMAC verification failed
+        return res.status(403).json({ error: 'HMAC verification failed' });
+    }
 }
