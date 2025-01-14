@@ -31,4 +31,5 @@ app.post('/crear-preferencia', async (req, res) => {
     }
 });
 
-
+// Exporta la app para que Vercel la reconozca
+module.exports = app;
